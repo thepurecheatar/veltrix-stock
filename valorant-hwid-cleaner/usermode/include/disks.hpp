@@ -17,8 +17,8 @@ struct phys_disk {
 };
 
 struct volume_info {
-    std::wstring guid_path;       // \\?\Volume{...}\
-    std::wstring drive_letter;    // "C:\"  if assigned
+    std::wstring guid_path;       // volume guid path
+    std::wstring drive_letter;    // drive letter root (e.g. C:\) if assigned
     uint32_t     serial{};
     std::wstring label;
     std::wstring fs_name;         // NTFS / FAT32 / exFAT

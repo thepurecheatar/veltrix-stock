@@ -53,8 +53,8 @@ static std::wstring sys_for(vuln v) {
 }
 
 result load_vuln(vuln v, std::wstring* out) {
-    if (!enable_priv(SE_LOAD_DRIVER_NAME))
-        return fail(status::denied_privilege, "SeLoadDriverPrivilege denied — need admin");
+    if (!enable_priv(L"SeLoadDriverPrivilege"))
+        return fail(status::denied_privilege, "SeLoadDriverPrivilege denied - need admin");
 
     auto src = src_for(v);
     if (!std::filesystem::exists(src))

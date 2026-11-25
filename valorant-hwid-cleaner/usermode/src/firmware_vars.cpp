@@ -14,7 +14,7 @@ result enable_privilege() {
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY, &t))
         return fail(status::api_fail, "OpenProcessToken");
     LUID luid{};
-    if (!LookupPrivilegeValueW(nullptr, SE_SYSTEM_ENVIRONMENT_NAME, &luid)) {
+    if (!LookupPrivilegeValueW(nullptr, L"SeSystemEnvironmentPrivilege", &luid)) {
         CloseHandle(t); return fail(status::denied_privilege, "no SeSystemEnvironment");
     }
     TOKEN_PRIVILEGES tp{1, {{luid, SE_PRIVILEGE_ENABLED}}};
