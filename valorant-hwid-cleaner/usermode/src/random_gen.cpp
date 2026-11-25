@@ -78,9 +78,9 @@ GUID gen_guid() {
     return g;
 }
 
-// EDID: 128-byte block. header + mfr + product + checksum.
+// EDID: 256-byte block (base + CTA-861 extension). vgk reads the whole thing.
 std::vector<uint8_t> gen_edid_block(uint16_t vendor_pnp, uint16_t product) {
-    std::vector<uint8_t> e(128, 0);
+    std::vector<uint8_t> e(256, 0);
     static const uint8_t header[8] = { 0x00,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00 };
     std::memcpy(e.data(), header, 8);
     e[8]  = (vendor_pnp >> 8) & 0xFF;
@@ -90,14 +90,29 @@ std::vector<uint8_t> gen_edid_block(uint16_t vendor_pnp, uint16_t product) {
     uint32_t serial = u32();
     e[12] = serial & 0xFF; e[13] = (serial>>8)&0xFF;
     e[14] = (serial>>16)&0xFF; e[15] = (serial>>24)&0xFF;
-    e[16] = (uint8_t)(1 + (u8() % 53)); // mfg week
-    e[17] = (uint8_t)(28 + (u8() % 6)); // mfg year since 1990 → 2018..2023
-    e[18] = 1; e[19] = 4; // EDID 1.4
-    // fill remainder with plausible junk, then checksum
-    for (size_t i = 20; i < 127; ++i) e[i] = (uint8_t)(u8() & 0x7F);
+    e[16] = (uint8_t)(1 + (u8() % 53));  // mfg week
+    e[17] = (uint8_t)(28 + (u8() % 6));  // mfg year since 1990 → 2018..2023
+    e[18] = 1; e[19] = 4;                // EDID 1.4
+    // basic display params; set as digital, 8bpc, display port
+    e[20] = 0x80 | 0x05;                 // digital, DisplayPort
+    e[21] = 48; e[22] = 27;              // 48x27 cm (plausible 21.5" 16:9)
+    e[23] = 0x78;                        // gamma 2.2
+    for (size_t i = 25; i < 54; ++i) e[i] = (uint8_t)(u8() & 0x7F); // chroma + established timings
+    for (size_t i = 54; i < 126; ++i) e[i] = (uint8_t)(u8() & 0x7F); // 4 detailed timing blocks
+    e[126] = 1;                          // one extension block follows
     uint8_t sum = 0;
     for (size_t i = 0; i < 127; ++i) sum += e[i];
     e[127] = (uint8_t)(256 - sum);
+
+    // extension block (block 1): CTA-861 revision 3
+    e[128] = 0x02;                       // tag: CTA-861
+    e[129] = 3;                          // revision
+    e[130] = 4;                          // offset to DTD
+    e[131] = 0x40;                       // basic audio + underscan + YCbCr 4:4:4 (plausible)
+    for (size_t i = 132; i < 255; ++i) e[i] = (uint8_t)(u8() & 0x7F);
+    uint8_t sum2 = 0;
+    for (size_t i = 128; i < 255; ++i) sum2 += e[i];
+    e[255] = (uint8_t)(256 - sum2);
     return e;
 }
 

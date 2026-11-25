@@ -36,6 +36,9 @@ result install_post_boot_task(const std::filesystem::path& self) {
 
 result run_post_boot() {
     JC_LOG(step, "post-boot: re-sweep deferred surfaces");
+
+    auto before = validate::capture();
+
     // 1) system volume is now read/writable before Vanguard spins up (if we didn't reinstall yet)
     std::vector<std::pair<uint32_t,uint32_t>> va;
     disks::rotate_volume_serials(&va);
@@ -47,7 +50,15 @@ result run_post_boot() {
     // 3) MAC: confirm each physical NIC kept our address; re-apply if the firmware override
     //    pushed back the OEM mac on cold boot.
     macs::spoof_all();
-    // 4) drop the scheduled task — one-shot.
+
+    // 4) stickiness report — compares pre/post boot snapshots and warns if system volume
+    //    didn't flip (needs WinPE pass).
+    auto after = validate::capture();
+    auto rep = validate::run_full(before, after);
+    JC_LOG(info, "%s", validate::print(rep).c_str());
+    validate::export_json(rep, "spoof_report_postboot.json");
+
+    // 5) drop the scheduled task — one-shot.
     std::wstring cmd = L"schtasks /Delete /F /TN \"" + std::wstring(TASK_NAME) + L"\"";
     run_cmd(cmd);
     JC_LOG(ok, "post-boot: done, scheduled task removed");
