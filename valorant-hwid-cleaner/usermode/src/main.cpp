@@ -78,26 +78,51 @@ int wmain(int argc, wchar_t** argv) {
     if (bcd_lock) { jc::fwvar::disable_test_signing(); return 0; }
 
     if (post_boot) {
-        JC_LOG(step, "post-boot mode — running deferred sweep");
+        JC_LOG(step, "post-boot mode - running deferred sweep");
         jc::boot::run_post_boot();
         return 0;
     }
     if (unblock_hosts) {
         jc::boot::uninstall_hosts_block();
+        JC_LOG(ok, "unblock-hosts complete");
         return 0;
     }
 
     if (!is_admin()) {
-        JC_LOG(err, "must run elevated — right-click, Run as Administrator");
+        JC_LOG(err, "must run elevated - right-click, Run as Administrator");
         return 2;
+    }
+
+    // read-only modes can run even if vgk is loaded
+    if (validate_only || dry) {
+        JC_LOG(step, "snapshot: capturing current state (read-only)");
+        auto snap = jc::validate::capture();
+        JC_LOG(info, "sys_serial=%s uuid=%s", snap.system_serial.c_str(), snap.system_uuid.c_str());
+        JC_LOG(info, "machineguid=%s", snap.machine_guid.c_str());
+        JC_LOG(info, "sqm=%s sus=%s hwprofile=%s",
+               snap.sqm_machine_id.c_str(), snap.sus_client_id.c_str(), snap.hw_profile_guid.c_str());
+        JC_LOG(info, "disks=%zu volumes=%zu macs=%zu monitors=%zu",
+               snap.disk_serials.size(), snap.volume_serials.size(),
+               snap.mac_addresses.size(), snap.monitor_edid_hashes.size());
+        for (size_t i = 0; i < snap.mac_addresses.size(); ++i)
+            JC_LOG(info, "  mac[%zu]=%s", i, snap.mac_addresses[i].c_str());
+        for (size_t i = 0; i < snap.disk_serials.size(); ++i)
+            JC_LOG(info, "  disk[%zu]=%s", i, snap.disk_serials[i].c_str());
+        for (size_t i = 0; i < snap.volume_serials.size(); ++i)
+            JC_LOG(info, "  vol[%zu]=%s", i, snap.volume_serials[i].c_str());
+        JC_LOG(ok, "validate/dry-run done");
+        return 0;
     }
 
     // evasion: quieten ETW *before* we touch anything sensitive.
     jc::evasion::disable_etw_for_self();
 
-    // refuse to run while Vanguard is live — flashing SMBIOS with vgk loaded is a silent ban trigger.
+    // refuse to run while Vanguard is live - flashing SMBIOS with vgk loaded is a silent ban trigger.
     if (jc::evasion::vgk_is_loaded()) {
-        JC_LOG(err, "vgk.sys is currently loaded — reboot with Vanguard disabled (BCDEDIT nointegritychecks or safe mode), then re-run");
+        JC_LOG(err, "vgk.sys is currently loaded. reboot into safe mode or disable ELAM:");
+        JC_LOG(err, "  bcdedit /set {current} safeboot network");
+        JC_LOG(err, "  shutdown /r /t 0");
+        JC_LOG(err, "  (after cleaner finishes) bcdedit /deletevalue {current} safeboot");
         return 3;
     }
 
@@ -112,15 +137,6 @@ int wmain(int argc, wchar_t** argv) {
            before.volume_serials.size(),
            before.mac_addresses.size(),
            before.monitor_edid_hashes.size());
-
-    if (validate_only) {
-        JC_LOG(ok, "validate-only mode — dumping and exiting");
-        return 0;
-    }
-    if (dry) {
-        JC_LOG(warn, "dry-run — no changes will be applied");
-        return 0;
-    }
 
     jc::validate::report rep{};
 
