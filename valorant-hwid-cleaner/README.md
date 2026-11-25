@@ -43,6 +43,39 @@ valorant-hwid-cleaner/
 | monitor EDID                    | `HKLM\SYSTEM\...\Enum\DISPLAY\*\*\Device Parameters\EDID`                                 | no           |
 | Vanguard install                | stop `vgc`+`vgk`, delete services, wipe `Program Files\Riot Vanguard` + registry + prefetch | yes      |
 
+## full workflow (first ban → playable again)
+
+```
+# step 1 — prep (once)
+#   put AMIDEWINx64.EXE (AMI boards) OR H2OSDE-Wx64-RW.exe (Insyde laptops) in tools\
+#   optional: iqvw64e.sys + RTCore64.sys for the kernel path
+scripts\build.bat                       # -> build\Release\jc_hwid_cleaner.exe
+
+# step 2 — full pass, run elevated
+scripts\run_clean.bat
+#   wipes Vanguard, flashes SMBIOS, rotates every surface, schedules post-boot sweep
+#   writes spoofer.log + spoof_report.json
+
+# step 3 — reboot
+#   if TPM asks to clear at POST, press F12/Y
+#   at logon the scheduled task re-patches the system volume VBR + re-applies MACs
+#   writes spoof_report_postboot.json and deletes itself
+
+# step 4 — verify
+build\Release\jc_hwid_cleaner.exe --validate-only
+#   every surface should read as its new value
+
+# step 5 — reopen the gates and install
+build\Release\jc_hwid_cleaner.exe --unblock-hosts
+#   then install Valorant from https://playvalorant.com
+#   Vanguard will reinstall and start fresh against the new fingerprint
+```
+
+for a hands-off run that unblocks and launches at the end:
+```
+scripts\run_clean.bat --auto-launch
+```
+
 ## usage
 
 ```
@@ -109,6 +142,23 @@ if iqvw64e is on Microsoft's recommended driver blocklist on your Windows 11 bui
 | system volume serial unchanged         | expected, flips on next boot — re-run after reboot or boot into WinPE and patch   |
 | EDID writes denied                     | run as TrustedInstaller: `psexec -s -i cmd.exe`, then run cleaner from there      |
 | Vanguard reinstalls from Riot Client   | `block_reinstall` adds `icacls /deny *S-1-5-18` on install dir; stays until `unblock` |
+
+## staying clean after reinstall
+
+Vanguard re-fingerprints over time. One run doesn't make you invisible forever — it moves every known surface once. To stay clean:
+
+- don't log into the same Riot account from the same Steam/Discord as the banned one (correlation signal, not HWID)
+- run `--validate-only` once a week; if any surface drifted back to the old value, re-run the full pass (runs clean in ~90s)
+- never let Vanguard see the transition. if the cleaner refuses with "vgk.sys is currently loaded", reboot in safe mode first and re-run
+
+## pass-by-pass changelog
+
+- **pass 1**: SMBIOS read/write, disk+volume VBR patch, MACs, registry IDs, TPM clear, GPU UUID + EDID, Vanguard wipe, BYOVD scaffold, kernel driver, validator, build.
+- **pass 2**: Bluetooth BTHPORT keys, WMI CIM repository, BAM/DAM history, Riot client remnants, system-vault DeviceId, prefetch, computer-name rotation.
+- **pass 3**: ETW mute via ret-first-byte, timestamp smear to explorer.exe, decoy 7045, refuse-to-run while `vgk` loaded, single-instance mutex, crash handler.
+- **pass 4**: post-boot scheduled task (self-deleting one-shot), VSS snapshot wipe, Credential Manager purge, hosts-file blackhole with backup, Riot Client auto-launch.
+- **pass 5**: UEFI runtime var rotation (`PlatformLangCodes`, `KeyboardLayout`), `bcdedit testsigning` on/off, `SeSystemEnvironmentPrivilege` handling.
+- **pass 6**: driver hooks now cover `IOCTL_ATA_PASS_THROUGH` (raw ATA IDENTIFY serial rewrite, byte-swapped per ATA spec) and `IOCTL_STORAGE_QUERY_UNIQUE_ID` (salted blob); full 256-byte EDID with CTA-861 extension block; post-boot run emits its own stickiness report.
 
 ## kernel hook notes
 
