@@ -66,6 +66,25 @@ output:
 - `spoofer.log`       — full trace
 - `spoof_report.json` — per-surface moved/not-moved + notes
 
+### every flag
+
+| flag                   | effect                                                                            |
+|------------------------|-----------------------------------------------------------------------------------|
+| `--dry-run`            | capture snapshot, do nothing                                                      |
+| `--validate-only`      | print current fingerprint and exit                                                |
+| `--keep-vanguard`      | don't uninstall Vanguard                                                          |
+| `--keep-riot-client`   | don't wipe Riot Client / LocalAppData remnants                                    |
+| `--with-driver`        | load BYOVD + manual-map `tools/spoofer.sys`                                       |
+| `--rotate-name`        | also reroll the computer name                                                     |
+| `--uefi-rotate`        | overwrite benign UEFI runtime vars (`PlatformLangCodes`, `KeyboardLayout`)        |
+| `--bcd-unlock`         | `bcdedit /set testsigning yes` — allows unsigned drivers until `--bcd-lock`       |
+| `--bcd-lock`           | undo `--bcd-unlock`                                                               |
+| `--post-boot`          | internal: the scheduled task invokes this — re-patch system VBR + MAC on logon    |
+| `--unblock-hosts`      | restore `hosts` file (reverts the Riot telemetry blackhole)                       |
+| `--auto-launch`        | after spoof, unblock Vanguard install and hand off to Riot Client to install Val |
+
+post-boot flow is auto-wired: the main run installs a one-shot `\Microsoft\Windows\WaaS\DeviceAttestationBridge` scheduled task that runs the exe with `--post-boot` at the next logon, finishes the system-volume VBR patch and the MAC re-apply, then deletes itself.
+
 ## reboot discipline
 
 1. first run goes to completion, writes BIOS, requests TPM clear at next boot.

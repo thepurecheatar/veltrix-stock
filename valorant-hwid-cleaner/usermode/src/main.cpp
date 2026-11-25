@@ -14,6 +14,9 @@
 #include "driver_loader.hpp"
 #include "extras.hpp"
 #include "evasion.hpp"
+#include "boot_phase.hpp"
+#include "firmware_vars.hpp"
+#include "self_check.hpp"
 
 #include <iostream>
 
@@ -37,6 +40,11 @@ static void banner() {
 
 int wmain(int argc, wchar_t** argv) {
     jc::log::g().open("spoofer.log");
+    jc::self::install_crash_handler();
+    if (!jc::self::acquire_single_instance()) {
+        JC_LOG(err, "another jc_hwid_cleaner instance is already running");
+        return 4;
+    }
     banner();
 
     bool dry = false;
@@ -45,6 +53,12 @@ int wmain(int argc, wchar_t** argv) {
     bool use_driver = false;
     bool rotate_name = false;
     bool keep_riot_client = false;
+    bool post_boot = false;
+    bool unblock_hosts = false;
+    bool auto_launch = false;
+    bool bcd_unlock = false;
+    bool bcd_lock = false;
+    bool uefi_rotate = false;
     for (int i = 1; i < argc; ++i) {
         std::wstring a = argv[i];
         if      (a == L"--dry-run")           dry = true;
@@ -53,6 +67,24 @@ int wmain(int argc, wchar_t** argv) {
         else if (a == L"--validate-only")     validate_only = true;
         else if (a == L"--with-driver")       use_driver = true;
         else if (a == L"--rotate-name")       rotate_name = true;
+        else if (a == L"--post-boot")         post_boot = true;
+        else if (a == L"--unblock-hosts")     unblock_hosts = true;
+        else if (a == L"--auto-launch")       auto_launch = true;
+        else if (a == L"--bcd-unlock")        bcd_unlock = true;
+        else if (a == L"--bcd-lock")          bcd_lock = true;
+        else if (a == L"--uefi-rotate")       uefi_rotate = true;
+    }
+
+    if (bcd_lock) { jc::fwvar::disable_test_signing(); return 0; }
+
+    if (post_boot) {
+        JC_LOG(step, "post-boot mode — running deferred sweep");
+        jc::boot::run_post_boot();
+        return 0;
+    }
+    if (unblock_hosts) {
+        jc::boot::uninstall_hosts_block();
+        return 0;
     }
 
     if (!is_admin()) {
@@ -136,6 +168,16 @@ int wmain(int argc, wchar_t** argv) {
     jc::gpu::rotate_gpu_registry_ids();
     jc::gpu::rotate_monitor_edid();
 
+    // 6.5) optional UEFI rotation
+    if (uefi_rotate) {
+        JC_LOG(step, "uefi: rotating identity vars");
+        jc::fwvar::rotate_identity_vars();
+    }
+    if (bcd_unlock) {
+        JC_LOG(step, "bcd: enabling testsigning (breaks HVCI until --bcd-lock)");
+        jc::fwvar::enable_test_signing();
+    }
+
     // 7) TPM clear (reboot-time consent)
     JC_LOG(step, "tpm: request clear via PPI");
     auto rtpm = jc::tpm::request_clear_via_ppi();
@@ -143,12 +185,15 @@ int wmain(int argc, wchar_t** argv) {
     if (!rtpm) JC_LOG(warn, "tpm clear: %s", rtpm.what.c_str());
 
     // 7.5) second-pass caches
-    JC_LOG(step, "extras: bluetooth, WMI CIM, BAM/DAM, system vault, prefetch");
+    JC_LOG(step, "extras: bluetooth, WMI CIM, BAM/DAM, system vault, prefetch, VSS, credentials");
     jc::extras::wipe_bluetooth_bd_addr();
     jc::extras::wipe_wmi_cim_cache();
     jc::extras::wipe_bam_dam_history();
     jc::extras::wipe_system_vault_device_id();
     jc::extras::wipe_prefetch_global();
+    jc::boot::wipe_vss_snapshots();
+    jc::boot::wipe_credential_manager_riot();
+    jc::boot::install_hosts_block();
     if (!keep_riot_client) {
         JC_LOG(step, "riot client: wipe local install (you'll fresh-login after)");
         jc::extras::wipe_riot_client_remnants();
@@ -188,7 +233,18 @@ int wmain(int argc, wchar_t** argv) {
     jc::evasion::smear_timestamps(self);
     jc::evasion::plant_decoy_7045(L"NetAdapterCx_Audit");
 
-    JC_LOG(step, "done. reboot now. do NOT install Vanguard before you've verified BIOS strings post-reboot.");
-    JC_LOG(info, "after reboot run with --validate-only to confirm all surfaces moved.");
+    // schedule the post-boot sweep (system VBR patch, MAC re-apply, cleanup)
+    jc::boot::install_post_boot_task(self);
+
+    JC_LOG(step, "done. reboot now.");
+    JC_LOG(info, "post-boot pass will auto-run at next logon and clean up after itself.");
+    JC_LOG(info, "after validation passes, run --unblock-hosts to restore Riot telemetry endpoints,");
+    JC_LOG(info, "then reinstall Valorant from https://playvalorant.com");
+    if (auto_launch) {
+        JC_LOG(step, "auto-launch: handing off to Riot Client");
+        jc::vanguard::unblock();
+        jc::boot::uninstall_hosts_block();
+        jc::boot::reinstall_valorant_optional();
+    }
     return 0;
 }
