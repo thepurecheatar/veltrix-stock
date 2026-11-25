@@ -1,0 +1,13 @@
+build/
+tools/
+*.sys
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.log
+spoof_report.json
+.vs/
+*.vcxproj.user
