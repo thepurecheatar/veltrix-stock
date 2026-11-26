@@ -24,144 +24,133 @@ lp.CharacterAdded:Connect(function(c)
 end)
 
 ------------------------------------------------------------------------
--- API RESOLVE (90+)
+-- API RESOLVE (name-based scan)
 ------------------------------------------------------------------------
-local function R(path)
-    local o = RS
-    for p in path:gmatch("[^/]+") do
-        if not o then return nil end
-        o = o:FindFirstChild(p)
-    end
-    return o
-end
-
 local API = {}
-local api_defs = {
-    -- TradeAPI (22)
-    {"SendTrade","API/TradeAPI/SendTradeRequest"},
-    {"AcceptDecline","API/TradeAPI/AcceptOrDeclineTradeRequest"},
-    {"AddItem","API/TradeAPI/AddItemToOffer"},
-    {"RemoveItem","API/TradeAPI/RemoveItemFromOffer"},
-    {"AcceptNeg","API/TradeAPI/AcceptNegotiation"},
-    {"UnacceptNeg","API/TradeAPI/UnacceptNegotiation"},
-    {"Confirm","API/TradeAPI/ConfirmTrade"},
-    {"Decline","API/TradeAPI/DeclineTrade"},
-    {"CanTrade","API/TradeAPI/CanTrade"},
-    {"GiveItem","API/TradeAPI/GiveItem"},
-    {"GetHistory","API/TradeAPI/GetTradeHistory"},
-    {"ReqBackpack","API/TradeAPI/RequestBackpackAccess"},
-    {"QuickChat","API/TradeAPI/SendQuickChat"},
-    {"SuggestItem","API/TradeAPI/SuggestItem"},
-    {"RemoveSuggestion","API/TradeAPI/RemoveSuggestion"},
-    {"ReactTrade","API/TradeAPI/ReactToTrade"},
-    {"SpectateTrade","API/TradeAPI/SpectateTrade"},
-    {"ReportScam","API/TradeAPI/ReportScam"},
-    {"BusyIndication","API/TradeAPI/ToggleBusyIndication"},
-    {"BeginQuiz","API/TradeAPI/BeginQuiz"},
-    {"EndQuiz","API/TradeAPI/EndQuiz"},
-    {"AnswerQuiz","API/TradeAPI/AnswerQuizQuestion"},
-    -- PetAPI (16)
-    {"NeonFusion","API/PetAPI/DoNeonFusion"},
-    {"SkipNeon","API/PetAPI/SkipNeonFusion"},
-    {"Polymorph","API/PetAPI/TogglePolymorph"},
-    {"Transform","API/PetAPI/SetTransformMode"},
-    {"MarkHatched","API/PetAPI/MarkHatched"},
-    {"ClaimReward","API/PetAPI/ClaimProgressionReward"},
-    {"PreviewReward","API/PetAPI/PreviewProgressionRewards"},
-    {"PreviewLoot","API/PetAPI/PreviewProgressionLoot"},
-    {"PetTrick","API/PetAPI/UpdatePetTrickLevel"},
-    {"SayTrick","API/PetAPI/SayPetTrickMessage"},
-    {"PetPetted","API/PetAPI/PetPetted"},
-    {"BufferCmd","API/PetAPI/BufferPetCommand"},
-    {"EquipLeash","API/PetAPI/EquipPetLeash"},
-    {"UnequipLeash","API/PetAPI/UnequipPetLeash"},
-    {"ConsumeFoodObj","API/PetAPI/ConsumeFoodObject"},
-    {"SetPetAge","API/PetAPI/SetPetAge"},
-    -- PetPaintAPI (4)
-    {"PaintPet","API/PetPaintAPI/PaintPet"},
-    {"SealPaint","API/PetPaintAPI/SealPetPaint"},
-    {"BuyPaint","API/PetPaintAPI/BuyPetPaint"},
-    {"WipeHairSpray","API/PetPaintAPI/WipeColoredHairSpray"},
-    -- ToolAPI (3)
-    {"Equip","API/ToolAPI/Equip"},
-    {"Unequip","API/ToolAPI/Unequip"},
-    {"UnequipAll","API/ToolAPI/UnequipAll"},
-    -- ErrorReportAPI (2)
-    {"DebugStash","API/ErrorReportAPI/TradeDebugStashInfiniteConfirmation"},
-    {"SendError","API/ErrorReportAPI/SendUniqueError"},
-    -- AdoptAPI (10)
-    {"FocusPet","API/AdoptAPI/FocusPet"},
-    {"UnfocusPet","API/AdoptAPI/UnfocusPet"},
-    {"RidePet","API/AdoptAPI/RidePet"},
-    {"FlyPet","API/AdoptAPI/FlyPet"},
-    {"HoldBaby","API/AdoptAPI/HoldBaby"},
-    {"EjectBaby","API/AdoptAPI/EjectBaby"},
-    {"UseStroller","API/AdoptAPI/UseStroller"},
-    {"SitOnFloat","API/AdoptAPI/SitOnFloat"},
-    {"RideParent","API/AdoptAPI/RideParent"},
-    {"PassiveDoor","API/AdoptAPI/SendPassiveDoorEnter"},
-    {"SpawnNursery","API/AdoptAPI/SpawnNursery"},
-    -- AilmentsAPI (1)
-    {"ProgressAil","API/AilmentsAPI/ProgressPetMeAilment"},
-    -- LootBoxAPI (1)
-    {"ExchangeItem","API/LootBoxAPI/ExchangeItemForReward"},
-    -- RecyclerAPI (2)
-    {"RecyclePets","API/PetRecyclerAPI/PetsReturned"},
-    {"CollectTicket","API/PetRecyclerAPI/TicketsCollected"},
-    -- IdleProgressionAPI (2)
-    {"IdleAddPet","API/IdleProgressionAPI/AddPet"},
-    {"IdleRemPet","API/IdleProgressionAPI/RemovePet"},
-    -- PetObjectAPI (3)
-    {"CreatePetObj","API/PetObjectAPI/CreatePetObject"},
-    {"DropPetObj","API/PetObjectAPI/DropPetObject"},
-    {"GrabPetObj","API/PetObjectAPI/GrabPetObject"},
-    -- VehicleAPI (3)
-    {"SitPetVehicle","API/VehicleAPI/SitPetInVehicle"},
-    {"RequestRide","API/VehicleAPI/RequestRide"},
-    {"CompleteRide","API/VehicleAPI/CompleteRide"},
-    -- PlaceableToolAPI (1)
-    {"SetForTrade","API/PlaceableToolAPI/SetItemForTrade"},
-    -- SettingsAPI (1)
-    {"SetPetName","API/SettingsAPI/SetPetRoleplayName"},
-    -- AvatarAPI (2)
-    {"GetPetOutfit","API/AvatarAPI/GetPetMannequinOutfitData"},
-    {"SavePetOutfit","API/AvatarAPI/SavePetMannequinOutfit"},
-    -- HousingAPI (2)
-    {"GetTradeHouse","API/HousingAPI/GetTradeHouseListings"},
-    {"GetNonTradeableFurn","API/HousingAPI/GetNonTradeableFurniture"},
-    -- AchievementsAPI (1)
-    {"CompleteAchieve","API/AchievementsAPI/CompleteAchievement"},
-    -- FamilyAPI (1)
-    {"FamilyInvite","API/FamilyAPI/AcceptDeclineInvite"},
-    -- LocationAPI (1)
-    {"GetLiveOps","API/LocationAPI/GetLiveOpsMapSwapTransitionCFrame"},
-    -- TokenizerAPI (1)
-    {"GetToken","API/TokenizerAPI/GetToken"},
-    -- EggAPI (extras)
-    {"BuyEgg","API/EggAPI/BuyEgg"},
-    {"HatchEgg","API/EggAPI/HatchEgg"},
-    {"OpenEgg","API/EggAPI/OpenEgg"},
-    -- GiftAPI
-    {"ClaimGift","API/GiftAPI/ClaimGift"},
-    {"OpenGift","API/GiftAPI/OpenGift"},
-    -- DailyRewardAPI
-    {"ClaimDaily","API/DailyRewardAPI/ClaimReward"},
-    {"ClaimLogin","API/LoginRewardAPI/ClaimReward"},
-    -- CurrencyAPI
-    {"GetBucks","API/CurrencyAPI/GetBucks"},
-    {"SpendBucks","API/CurrencyAPI/SpendBucks"},
-    -- BabyAPI
-    {"FeedBaby","API/BabyAPI/FeedBaby"},
-    {"SleepBaby","API/BabyAPI/SleepBaby"},
-    {"CleanBaby","API/BabyAPI/CleanBaby"},
-    {"BathBaby","API/BabyAPI/BathBaby"},
+local api_names = {
+    {"SendTrade","SendTradeRequest"},
+    {"AcceptDecline","AcceptOrDeclineTradeRequest"},
+    {"AddItem","AddItemToOffer"},
+    {"RemoveItem","RemoveItemFromOffer"},
+    {"AcceptNeg","AcceptNegotiation"},
+    {"UnacceptNeg","UnacceptNegotiation"},
+    {"Confirm","ConfirmTrade"},
+    {"Decline","DeclineTrade"},
+    {"CanTrade","CanTrade"},
+    {"GiveItem","GiveItem"},
+    {"GetHistory","GetTradeHistory"},
+    {"ReqBackpack","RequestBackpackAccess"},
+    {"QuickChat","SendQuickChat"},
+    {"SuggestItem","SuggestItem"},
+    {"RemoveSuggestion","RemoveSuggestion"},
+    {"ReactTrade","ReactToTrade"},
+    {"SpectateTrade","SpectateTrade"},
+    {"ReportScam","ReportScam"},
+    {"BusyIndication","ToggleBusyIndication"},
+    {"BeginQuiz","BeginQuiz"},
+    {"EndQuiz","EndQuiz"},
+    {"AnswerQuiz","AnswerQuizQuestion"},
+    {"NeonFusion","DoNeonFusion"},
+    {"SkipNeon","SkipNeonFusion"},
+    {"Polymorph","TogglePolymorph"},
+    {"Transform","SetTransformMode"},
+    {"MarkHatched","MarkHatched"},
+    {"ClaimReward","ClaimProgressionReward"},
+    {"PreviewReward","PreviewProgressionRewards"},
+    {"PreviewLoot","PreviewProgressionLoot"},
+    {"PetTrick","UpdatePetTrickLevel"},
+    {"SayTrick","SayPetTrickMessage"},
+    {"PetPetted","PetPetted"},
+    {"BufferCmd","BufferPetCommand"},
+    {"EquipLeash","EquipPetLeash"},
+    {"UnequipLeash","UnequipPetLeash"},
+    {"ConsumeFoodObj","ConsumeFoodObject"},
+    {"PaintPet","PaintPet"},
+    {"SealPaint","SealPetPaint"},
+    {"BuyPaint","BuyPetPaint"},
+    {"WipeHairSpray","WipeColoredHairSpray"},
+    {"Equip","Equip"},
+    {"Unequip","Unequip"},
+    {"UnequipAll","UnequipAll"},
+    {"DebugStash","TradeDebugStashInfiniteConfirmation"},
+    {"SendError","SendUniqueError"},
+    {"FocusPet","FocusPet"},
+    {"UnfocusPet","UnfocusPet"},
+    {"RidePet","RidePet"},
+    {"FlyPet","FlyPet"},
+    {"HoldBaby","HoldBaby"},
+    {"EjectBaby","EjectBaby"},
+    {"UseStroller","UseStroller"},
+    {"SitOnFloat","SitOnFloat"},
+    {"RideParent","RideParent"},
+    {"PassiveDoor","SendPassiveDoorEnter"},
+    {"SpawnNursery","SpawnNursery"},
+    {"ProgressAil","ProgressPetMeAilment"},
+    {"ExchangeItem","ExchangeItemForReward"},
+    {"RecyclePets","PetsReturned"},
+    {"CollectTicket","TicketsCollected"},
+    {"IdleAddPet","AddPet"},
+    {"IdleRemPet","RemovePet"},
+    {"CreatePetObj","CreatePetObject"},
+    {"DropPetObj","DropPetObject"},
+    {"GrabPetObj","GrabPetObject"},
+    {"SitPetVehicle","SitPetInVehicle"},
+    {"RequestRide","RequestRide"},
+    {"CompleteRide","CompleteRide"},
+    {"SetForTrade","SetItemForTrade"},
+    {"SetPetName","SetPetRoleplayName"},
+    {"GetPetOutfit","GetPetMannequinOutfitData"},
+    {"SavePetOutfit","SavePetMannequinOutfit"},
+    {"GetTradeHouse","GetTradeHouseListings"},
+    {"GetNonTradeableFurn","GetNonTradeableFurniture"},
+    {"CompleteAchieve","CompleteAchievement"},
+    {"FamilyInvite","AcceptDeclineInvite"},
+    {"GetLiveOps","GetLiveOpsMapSwapTransitionCFrame"},
+    {"GetToken","GetToken"},
+    {"SetPetAge","SetPetAge"},
+    {"BuyEgg","BuyEgg"},
+    {"HatchEgg","HatchEgg"},
+    {"OpenEgg","OpenEgg"},
+    {"ClaimGift","ClaimGift"},
+    {"OpenGift","OpenGift"},
+    {"ClaimDaily","ClaimReward","Daily"},
+    {"ClaimLogin","ClaimReward","Login"},
+    {"GetBucks","GetBucks"},
+    {"SpendBucks","SpendBucks"},
+    {"FeedBaby","FeedBaby"},
+    {"SleepBaby","SleepBaby"},
+    {"CleanBaby","CleanBaby"},
+    {"BathBaby","BathBaby"},
 }
 
-local api_ok, api_miss = 0, 0
-for _, v in ipairs(api_defs) do
-    API[v[1]] = R(v[2])
-    if API[v[1]] then api_ok = api_ok + 1 else api_miss = api_miss + 1 end
+-- build name lookup (supports multiple keys per remote name)
+local name_lookup = {}
+for _, v in ipairs(api_names) do
+    if not name_lookup[v[2]] then name_lookup[v[2]] = {} end
+    table.insert(name_lookup[v[2]], {v[1], v[3]})
 end
+
+-- scan RS descendants by name
+local api_ok, api_miss = 0, 0
+pcall(function()
+    for _, obj in ipairs(RS:GetDescendants()) do
+        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction") then
+            local entries = name_lookup[obj.Name]
+            if entries then
+                local pname = obj.Parent and obj.Parent.Name or ""
+                for _, e in ipairs(entries) do
+                    local key, hint = e[1], e[2]
+                    if not API[key] then
+                        if not hint or pname:find(hint) then
+                            API[key] = obj; api_ok = api_ok + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+api_miss = #api_names - api_ok
 
 ------------------------------------------------------------------------
 -- STATE
