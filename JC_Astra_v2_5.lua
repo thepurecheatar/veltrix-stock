@@ -442,12 +442,17 @@ end
 ------------------------------------------------------------------------
 -- UTILS
 ------------------------------------------------------------------------
-local function fire(remote, ...)
+local function fire(remote, a, b, c, d, e)
     if not remote then return false end
     local ok2, err2
-    if remote:IsA("RemoteEvent") then ok2, err2 = pcall(function() remote:FireServer(...) end)
-    else ok2, err2 = pcall(function() remote:InvokeServer(...) end) end
+    if remote:IsA("RemoteEvent") then ok2, err2 = pcall(remote.FireServer, remote, a, b, c, d, e)
+    else ok2, err2 = pcall(remote.InvokeServer, remote, a, b, c, d, e) end
     if not ok2 then log("ERR:" .. tostring(err2), C.red) end; return ok2
+end
+local function fire_a(remote, args)
+    if not remote then return false end
+    if not args or #args == 0 then return fire(remote) end
+    return fire(remote, args[1], args[2], args[3], args[4], args[5])
 end
 local function rejoin() log("REJOIN...", C.yellow); pcall(function() TPS:TeleportToPlaceInstance(game.PlaceId, game.JobId, lp) end) end
 local function serverhop() log("HOP...", C.yellow); pcall(function() TPS:Teleport(game.PlaceId, lp) end) end
@@ -575,7 +580,7 @@ mkb(sp, "Fuzz Last", 8, 1, C.orange, function()
     pcall(function() fire(remote, "") end)
     pcall(function() fire(remote, nil, true) end)
     if last.args and #last.args > 0 then
-        pcall(function() fire(remote, unpack(last.args)) end)
+        pcall(function() fire_a(remote, last.args) end)
         pcall(function() fire(remote, last.args[1], true) end)
     end
     log("10 variants fired", C.green)
@@ -614,7 +619,7 @@ end)
 
 mkb(dp, "Add Pet", 1, 1, C.card, function()
     local f = find_spy("AddItemToOffer")
-    if f then fire(API.AddItem, unpack(f.args)); log("added", C.green)
+    if f then fire_a(API.AddItem, f.args); log("added", C.green)
     else log("spy + add pet first", C.yellow) end
 end)
 
@@ -631,16 +636,16 @@ mklbl(dp, "-- M2: DESYNC --", 3, C.blue)
 mkb(dp, "Desync 30x", 4, 0, C.blue, function()
     local eq = find_spy("Equip"); local uq = find_spy("Unequip")
     for i = 1, 30 do
-        if eq then fire(API.Equip, unpack(eq.args)) end
-        if uq then fire(API.Unequip, unpack(uq.args)) else fire(API.UnequipAll) end; wait(0.02)
+        if eq then fire_a(API.Equip, eq.args) end
+        if uq then fire_a(API.Unequip, uq.args) else fire(API.UnequipAll) end; wait(0.02)
     end; log("30x done", C.green); toast("Desync!", C.blue)
 end)
 
 mkb(dp, "Desync 100x", 4, 1, C.blue, function()
     local eq = find_spy("Equip"); local uq = find_spy("Unequip")
     for i = 1, 100 do
-        if eq then fire(API.Equip, unpack(eq.args)) end
-        if uq then fire(API.Unequip, unpack(uq.args)) else fire(API.UnequipAll) end; wait(0.01)
+        if eq then fire_a(API.Equip, eq.args) end
+        if uq then fire_a(API.Unequip, uq.args) else fire(API.UnequipAll) end; wait(0.01)
     end; log("100x done", C.green)
 end)
 
@@ -648,7 +653,7 @@ mklbl(dp, "-- M3-M7 --", 5, C.green)
 
 mkb(dp, "M3: Neon", 6, 0, C.green, function()
     local n = find_spy("DoNeonFusion")
-    if n then fire(API.NeonFusion, unpack(n.args)); wait(rd()); rejoin()
+    if n then fire_a(API.NeonFusion, n.args); wait(rd()); rejoin()
     else log("neon cave + spy", C.yellow) end
 end)
 
@@ -661,21 +666,21 @@ end)
 
 mkb(dp, "M5: GiveItem", 7, 0, C.accent, function()
     local f = find_spy("GiveItem")
-    if f then fire(API.GiveItem, unpack(f.args)); wait(rd()); rejoin()
+    if f then fire_a(API.GiveItem, f.args); wait(rd()); rejoin()
     else log("GiveItem uncaptured", C.yellow) end
 end)
 
 mkb(dp, "M6: Recycle", 7, 1, C.orange, function()
     local f = find_spy("PetsReturned")
-    if f then fire(API.RecyclePets, unpack(f.args)); wait(rd()); rejoin()
+    if f then fire_a(API.RecyclePets, f.args); wait(rd()); rejoin()
     else fire(API.RecyclePets); fire(API.RecyclePets, true); fire(API.RecyclePets, lp)
         log("recycle 3 variants", C.orange) end
 end)
 
 mkb(dp, "M7: IdleProg", 8, 0, C.cyan, function()
     local f = find_spy("AddPet")
-    if f then fire(API.IdleAddPet, unpack(f.args)); wait(0.1)
-        fire(API.IdleRemPet, unpack(f.args)); wait(rd()); rejoin()
+    if f then fire_a(API.IdleAddPet, f.args); wait(0.1)
+        fire_a(API.IdleRemPet, f.args); wait(rd()); rejoin()
     else fire(API.IdleAddPet); fire(API.IdleRemPet); log("idle 2 variants", C.cyan) end
 end)
 
@@ -687,11 +692,11 @@ mkb(dp, "Unaccept", 10, 0, C.card, function() fire(API.UnacceptNeg); log("unacce
 mkb(dp, "Decline", 10, 1, C.card, function() fire(API.Decline); log("declined") end)
 mkb(dp, "RemoveItem", 11, 0, C.card, function()
     local f = find_spy("RemoveItemFromOffer")
-    if f then fire(API.RemoveItem, unpack(f.args)); log("removed") else log("uncaptured", C.yellow) end
+    if f then fire_a(API.RemoveItem, f.args); log("removed") else log("uncaptured", C.yellow) end
 end)
 mkb(dp, "SuggestItem", 11, 1, C.card, function()
     local f = find_spy("SuggestItem")
-    if f then fire(API.SuggestItem, unpack(f.args)); log("suggested") else log("uncaptured", C.yellow) end
+    if f then fire_a(API.SuggestItem, f.args); log("suggested") else log("uncaptured", C.yellow) end
 end)
 
 mklbl(dp, "-- DUPE QUEUE --", 12, C.mythic)
@@ -718,7 +723,7 @@ mkbw(dp, "Q: RUN ALL (M1)", 14, C.crimson, function()
             if not S.dupe_q_running then break end
             log("[Q " .. qi .. "/" .. #S.dupe_queue .. "]", C.mythic)
             fire(API.SendTrade, S.target); wait(2)
-            fire(API.AddItem, unpack(q.args)); wait(1)
+            fire_a(API.AddItem, q.args); wait(1)
             fire(API.AcceptNeg); wait(1.5)
             S.dupe_count = S.dupe_count + 1
             fire(API.Confirm); wait(rd()); rejoin(); wait(10)
@@ -751,24 +756,24 @@ mkbw(ap, "START AUTO DUPE", 2, C.mythic, function()
             log("[A] #" .. (S.dupe_count+1), C.mythic)
             fire(API.SendTrade, S.target); wait(2)
             local add = find_spy("AddItemToOffer")
-            if add then fire(API.AddItem, unpack(add.args)) end; wait(1)
+            if add then fire_a(API.AddItem, add.args) end; wait(1)
             fire(API.AcceptNeg); wait(1.5)
             if S.auto_dupe_method == 1 then
                 S.dupe_count = S.dupe_count + 1; fire(API.Confirm); wait(rd()); rejoin(); wait(8)
             elseif S.auto_dupe_method == 2 then
                 local eq = find_spy("Equip")
-                for i = 1, 50 do if eq then fire(API.Equip, unpack(eq.args)) end; fire(API.UnequipAll); wait(0.02) end
+                for i = 1, 50 do if eq then fire_a(API.Equip, eq.args) end; fire(API.UnequipAll); wait(0.02) end
                 S.dupe_count = S.dupe_count + 1; fire(API.Confirm); wait(rd()); rejoin(); wait(8)
             elseif S.auto_dupe_method == 3 then
                 local n = find_spy("DoNeonFusion")
-                if n then S.dupe_count = S.dupe_count + 1; fire(API.NeonFusion, unpack(n.args)); wait(rd()); rejoin(); wait(8)
+                if n then S.dupe_count = S.dupe_count + 1; fire_a(API.NeonFusion, n.args); wait(rd()); rejoin(); wait(8)
                 else log("neon X", C.red); S.auto_dupe_on = false end
             elseif S.auto_dupe_method == 4 then
                 fire(API.DebugStash); fire(API.DebugStash, true); fire(API.DebugStash, lp.UserId)
                 S.dupe_count = S.dupe_count + 1; fire(API.Confirm); wait(rd()); rejoin(); wait(8)
             elseif S.auto_dupe_method == 5 then
                 local f = find_spy("GiveItem")
-                if f then S.dupe_count = S.dupe_count + 1; fire(API.GiveItem, unpack(f.args)); wait(rd()); rejoin(); wait(8)
+                if f then S.dupe_count = S.dupe_count + 1; fire_a(API.GiveItem, f.args); wait(rd()); rejoin(); wait(8)
                 else log("give X", C.red); S.auto_dupe_on = false end
             end
         end); if S.auto_dupe_on then log("[A] cycle:" .. S.dupe_count, C.mythic); wait(3) end end
@@ -841,7 +846,7 @@ end)
 
 mkb(ap, "Spam GiveItem", 9, 1, C.red, function()
     local f = find_spy("GiveItem")
-    if f then for i = 1, 10 do fire(API.GiveItem, unpack(f.args)); wait(0.05) end; log("10x give", C.red)
+    if f then for i = 1, 10 do fire_a(API.GiveItem, f.args); wait(0.05) end; log("10x give", C.red)
     else log("uncaptured", C.yellow) end
 end)
 
@@ -862,7 +867,7 @@ mkb(rp, "Play", 1, 1, C.green, function()
     log("REPLAY " .. #S.replay_seq, C.orange)
     for i, a in ipairs(S.replay_seq) do
         local remote = R(a.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
-        if remote then fire(remote, unpack(a.args or {})) end
+        if remote then fire_a(remote, a.args) end
         if i < #S.replay_seq then wait(math.min(math.max(S.replay_seq[i+1].time - a.time, 0.01), 2)) end
     end; log("done", C.green)
 end)
@@ -871,7 +876,7 @@ mkb(rp, "Play+Rejoin", 2, 0, C.red, function()
     if #S.replay_seq == 0 then return end
     for i, a in ipairs(S.replay_seq) do
         local remote = R(a.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
-        if remote then fire(remote, unpack(a.args or {})) end
+        if remote then fire_a(remote, a.args) end
         if i < #S.replay_seq then wait(math.min(math.max(S.replay_seq[i+1].time - a.time, 0.01), 1)) end
     end; wait(S.delay); rejoin()
 end)
@@ -880,7 +885,7 @@ mkb(rp, "Play 3x", 2, 1, C.blue, function()
     if #S.replay_seq == 0 then return end
     for i, a in ipairs(S.replay_seq) do
         local remote = R(a.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
-        if remote then fire(remote, unpack(a.args or {})) end
+        if remote then fire_a(remote, a.args) end
         if i < #S.replay_seq then wait(math.min((S.replay_seq[i+1].time - a.time) / 3, 0.3)) end
     end; log("3x done", C.green)
 end)
@@ -891,7 +896,7 @@ mkb(rp, "Spam Last x50", 3, 0, C.red, function()
     local remote = R(last.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
     if not remote then log("gone", C.red); return end
     log("x50 " .. last.name, C.red)
-    for i = 1, 50 do fire(remote, unpack(last.args or {})); wait(0.015) end; log("done", C.green)
+    for i = 1, 50 do fire_a(remote, last.args); wait(0.015) end; log("done", C.green)
 end)
 
 mkb(rp, "Spam x200", 3, 1, C.crimson, function()
@@ -899,7 +904,7 @@ mkb(rp, "Spam x200", 3, 1, C.crimson, function()
     local last = S.spy_log[#S.spy_log]
     local remote = R(last.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
     if not remote then return end; log("x200 " .. last.name, C.crimson)
-    for i = 1, 200 do fire(remote, unpack(last.args or {})); wait(0.008) end; log("done", C.green)
+    for i = 1, 200 do fire_a(remote, last.args); wait(0.008) end; log("done", C.green)
 end)
 
 mkb(rp, "Loop x5", 4, 0, C.orange, function()
@@ -907,7 +912,7 @@ mkb(rp, "Loop x5", 4, 0, C.orange, function()
     for loop = 1, 5 do log("  " .. loop .. "/5", C.dim)
         for i, a in ipairs(S.replay_seq) do
             local remote = R(a.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
-            if remote then fire(remote, unpack(a.args or {})) end
+            if remote then fire_a(remote, a.args) end
             if i < #S.replay_seq then wait(math.min(math.max(S.replay_seq[i+1].time - a.time, 0.01), 0.5)) end
         end; wait(0.5) end; log("done", C.green)
 end)
@@ -917,7 +922,7 @@ mkb(rp, "Loop x20", 4, 1, C.crimson, function()
     for loop = 1, 20 do
         for i, a in ipairs(S.replay_seq) do
             local remote = R(a.path:gsub("ReplicatedStorage%.", ""):gsub("%.", "/"))
-            if remote then fire(remote, unpack(a.args or {})) end
+            if remote then fire_a(remote, a.args) end
             if i < #S.replay_seq then wait(math.min((S.replay_seq[i+1].time - a.time) / 2, 0.3)) end
         end; wait(0.3) end; log("20 loops done", C.green)
 end)
@@ -1203,10 +1208,10 @@ mkb(pp, "Copy Pets", 1, 1, C.green, function()
 end)
 
 mkb(pp, "Ride", 2, 0, C.card, function()
-    local f = find_spy("RidePet"); if f then fire(API.RidePet, unpack(f.args)) else fire(API.RidePet) end; log("ride!")
+    local f = find_spy("RidePet"); if f then fire_a(API.RidePet, f.args) else fire(API.RidePet) end; log("ride!")
 end)
 mkb(pp, "Fly", 2, 1, C.card, function()
-    local f = find_spy("FlyPet"); if f then fire(API.FlyPet, unpack(f.args)) else fire(API.FlyPet) end; log("fly!")
+    local f = find_spy("FlyPet"); if f then fire_a(API.FlyPet, f.args) else fire(API.FlyPet) end; log("fly!")
 end)
 mkb(pp, "Focus", 3, 0, C.card, function() fire(API.FocusPet); log("focused") end)
 mkb(pp, "Unfocus", 3, 1, C.card, function() fire(API.UnfocusPet); log("unfocused") end)
@@ -1215,7 +1220,7 @@ mkb(pp, "Unequip Leash", 4, 1, C.card, function() fire(API.UnequipLeash); log("l
 mkb(pp, "Polymorph", 5, 0, C.accent, function() fire(API.Polymorph); log("polymorph!") end)
 mkb(pp, "Transform", 5, 1, C.accent, function() fire(API.Transform); log("transform!") end)
 mkb(pp, "Paint Pet", 6, 0, C.orange, function()
-    local f = find_spy("PaintPet"); if f then fire(API.PaintPet, unpack(f.args)) else fire(API.PaintPet) end; log("paint!")
+    local f = find_spy("PaintPet"); if f then fire_a(API.PaintPet, f.args) else fire(API.PaintPet) end; log("paint!")
 end)
 mkb(pp, "Seal Paint", 6, 1, C.orange, function() fire(API.SealPaint); log("sealed") end)
 mkb(pp, "Trick Up", 7, 0, C.card, function() fire(API.PetTrick); log("trick+") end)
@@ -1230,7 +1235,7 @@ mkb(pp, "Rename Pet", 11, 0, C.card, function()
     fire(API.SetPetName, "JC-EXTRA"); log("renamed JC-EXTRA")
 end)
 mkb(pp, "Equip All", 11, 1, C.card, function()
-    local f = find_spy("Equip"); if f then fire(API.Equip, unpack(f.args)); log("equipped") else log("uncapt", C.yellow) end
+    local f = find_spy("Equip"); if f then fire_a(API.Equip, f.args); log("equipped") else log("uncapt", C.yellow) end
 end)
 mkb(pp, "UnequipAll", 12, 0, C.red, function() fire(API.UnequipAll); log("all unequipped") end)
 mkb(pp, "Wipe Paint", 12, 1, C.red, function() fire(API.WipeHairSpray); log("wiped!") end)
